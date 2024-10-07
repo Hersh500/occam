@@ -1,0 +1,14 @@
+numpy>=1.18.0
+cloudpickle>=1.2.0
+importlib_metadata>=4.8.0; python_version < '3.10'
+gym_notices>=0.0.4
+dataclasses;
+opencv-python>=3.0
+lz4>=3.1.0
+matplotlib>=3.0
+pygame==2.1.0
+mujoco==2.2.0
+mujoco_py<2.2,>=2.1
+imageio>=2.14.1
+scikit-learn>=1.1.2
+scikit-optimize>=0.9.0

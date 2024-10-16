@@ -4,9 +4,14 @@ import numpy as np
 from dataclasses import dataclass
 import glob
 import pickle as pkl
-from go1_gym.envs.base.legged_robot_config import Cfg
-from go1_gym.envs.wrappers.history_wrapper import HistoryWrapper
-from go1_gym.envs.go1.velocity_tracking import VelocityTrackingEasyEnv
+
+try:
+    from go1_gym.envs.base.legged_robot_config import Cfg
+    from go1_gym.envs.wrappers.history_wrapper import HistoryWrapper
+    from go1_gym.envs.go1.velocity_tracking import VelocityTrackingEasyEnv
+except ModuleNotFoundError or ImportError:
+    print("Go1 gym not installed, will not be able to use Mob Loco")
+
 import torch
 from typing import List, Union, Optional
 from datetime import datetime
@@ -15,6 +20,9 @@ import h5py
 
 from learned_ctrlr_opt.systems.robots import Robot
 from learned_ctrlr_opt.utils.dataset_utils import denormalize
+
+# NOTE: the code for this system depends on some local modifications to the walk-these-ways codebase
+# TODO(hersh500): push those changes to make this code fully usable by others
 
 CMD_BOUNDS = np.array([[-3, 3],
                        [-1, 1],

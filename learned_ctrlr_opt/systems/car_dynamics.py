@@ -9,16 +9,14 @@ Created by Oleg Klimov
 
 import math
 
-import Box2D
+try:
+    import Box2D
+    from Box2D.b2 import fixtureDef, polygonShape, revoluteJointDef
+except ImportError:
+    print("Box2D not installed, TopDownCar will not be available")
 import numpy as np
 from dataclasses import dataclass
 from gym.error import DependencyNotInstalled
-
-try:
-    from Box2D.b2 import fixtureDef, polygonShape, revoluteJointDef
-except ImportError:
-    raise DependencyNotInstalled("box2D is not installed, run `pip install gym[box2d]`")
-
 
 '''
 # TODO: incorporate mass changes, friction for each wheel, etc

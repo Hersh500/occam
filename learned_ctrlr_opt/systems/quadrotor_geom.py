@@ -5,23 +5,27 @@ from learned_ctrlr_opt.systems.robots import Robot
 from dataclasses import dataclass
 from typing import Dict, Union
 from learned_ctrlr_opt.utils.dataset_utils import denormalize
-from rotorpy.vehicles.crazyflie_params import quad_params as cf_quad_params
-# from rotorpy.vehicles.hummingbird_params import quad_params
+try:
+    from rotorpy.vehicles.crazyflie_params import quad_params as cf_quad_params
+    # from rotorpy.vehicles.hummingbird_params import quad_params
 
-from rotorpy.environments import Environment
-from rotorpy.vehicles.multirotor import Multirotor
+    from rotorpy.environments import Environment
+    from rotorpy.vehicles.multirotor import Multirotor
 
-# You will also need a controller (currently there is only one) that works for your vehicle.
-from rotorpy.controllers.quadrotor_control import SE3Control
-from learned_ctrlr_opt.systems.l1_adaptive_quad import L1SE3Control
+    # You will also need a controller (currently there is only one) that works for your vehicle.
+    from rotorpy.controllers.quadrotor_control import SE3Control
 
-# And a trajectory generator
-from rotorpy.trajectories.hover_traj import HoverTraj
-from rotorpy.trajectories.circular_traj import CircularTraj
-from rotorpy.trajectories.lissajous_traj import TwoDLissajous
+    # And a trajectory generator
+    from rotorpy.trajectories.hover_traj import HoverTraj
+    from rotorpy.trajectories.circular_traj import CircularTraj
+    from rotorpy.trajectories.lissajous_traj import TwoDLissajous
 
-# Also, worlds are how we construct obstacles. The following class contains methods related to constructing these maps.
-from rotorpy.world import World
+    # Also, worlds are how we construct obstacles. The following class contains methods related to constructing these maps.
+    from rotorpy.world import World
+except ImportError:
+    print("RotorPY not installed, quad geom will not be available.")
+    SE3Control = object
+    TwoDLissajous = object
 import sys
 
 def eval_success(traj):
@@ -218,7 +222,6 @@ class ParametrizedSE3Control(SE3Control):
 class QuadrotorSE3Control(Robot):
     ControllerParamsT = SE3ControlGains
     ParamsT = QuadrotorParams
-    TrainParamsT = QuadrotorParams
     def __init__(self, params: QuadrotorParams,
                  gains_to_optimize,
                  trajectory_obj,
@@ -496,29 +499,13 @@ class QuadrotorSE3Control(Robot):
 
 
 class QuadrotorSE3Control_ResetFree(QuadrotorSE3Control):
-    def evaluate_x(self, x, 
-                   initial_state=None, 
-                   render=False, 
-                   wind=None, 
-                   raw_pos=True, 
-                   adaptive=False,
-                   adaptive_alpha=0.8,
-                   ground_truth_params=False):
+    def evaluate_x(self, x, initial_state=None, render=False, wind=None):
         params_dict = self._create_params_dict()
         ctrl_params_array = np.array(SE3ControlGains().get_list())
         ctrl_params_array[self.gains_to_optimize] = x
         sim_rate = 100
         world = World(self.blank_world_def)
-        if ground_truth_params:
-            if initial_state is None:
-                print("Warning! Giving ctrlr ground truth hidden params")
-            params_for_ctrlr = params_dict
-        else:
-            params_for_ctrlr = cf_quad_params
-        if not adaptive:
-            controller = ParametrizedSE3Control(params_for_ctrlr, ctrl_params_array)
-        else:
-            controller = L1SE3Control(params_for_ctrlr, adaptive_alpha=adaptive_alpha)
+        controller = ParametrizedSE3Control(cf_quad_params, ctrl_params_array)
         sim_instance = Environment(vehicle=Multirotor(params_dict),
                                    controller=controller,
                                    trajectory=self.trajectory_obj,
@@ -563,6 +550,7 @@ class QuadrotorSE3Control_ResetFree(QuadrotorSE3Control):
         eulers = R.from_quat(results["state"]["q"]).as_euler("xyz")
 
         x_flat = results["flat"]["x"]
+        v_flat = results["flat"]["x_dot"]
         # print("----X_FLAT----")
         # print(x_flat)
         # print("----X----")
@@ -571,22 +559,20 @@ class QuadrotorSE3Control_ResetFree(QuadrotorSE3Control):
         rotor_speeds = results["state"]["rotor_speeds"]
         cmd_thrust = results["control"]["cmd_thrust"]
 
-        actual_traj = np.zeros((int(self.t_f*sim_rate), 3+3+2+1))
-        lim = min(x.shape[0], int(self.t_f*sim_rate))  # in case of premature failure
-        if raw_pos:
-            actual_traj[:lim,0:3] = x[:lim]
-        else:
-            actual_traj[:lim,0:3] = x[:lim] - x_flat[:lim]
-        actual_traj[:lim,3:6] = v[:lim]
+        actual_traj = np.zeros((self.t_f*sim_rate, 3+3+2+2+1))
+        lim = min(x.shape[0], self.t_f*sim_rate)  # in case of premature failure
+        actual_traj[:lim,0:3] = x[:lim] - x_flat[:lim]  # output tracking error instead of just raw positions
+        actual_traj[:lim,3:6] = v[:lim] - v_flat[:lim]
         actual_traj[:lim,6] = eulers[:lim,2]
-        actual_traj[:lim,7] = w[:lim,2]
+        actual_traj[:lim,7:10] = w[:lim]
         # actual_traj[:lim,8:] = rotor_speeds[:lim]
-        actual_traj[:lim,8] = cmd_thrust[:lim]
+        actual_traj[:lim,10] = cmd_thrust[:lim]
 
         # Does this aggregate too many terms together?
         pos_error = np.sum(np.linalg.norm(x - x_flat, axis=1))/x.shape[0]
         yaw_error = np.sum(np.linalg.norm(eulers[:,2]- yaw_flat, axis=0))/x.shape[0]
-        pitchroll = np.sum(np.linalg.norm(eulers[:,:2], axis=1))/x.shape[0]
+        # pitchroll = np.sum(np.linalg.norm(eulers[:,:2], axis=1))/x.shape[0]
+        pitchroll = np.sum(np.linalg.norm(w[:2], axis=1))/x.shape[0]   # output pitchroll velocity instead...
         effort = np.sum(np.abs(cmd_thrust))/x.shape[0]
         self.trajectory_obj.shift_forward(self.t_f)
         return np.array([pos_error, yaw_error, pitchroll, effort]), actual_traj, results
@@ -652,6 +638,7 @@ class QuadrotorSE3Control_RandomStart(QuadrotorSE3Control):
         initial_eulers = R.from_quat(initial_results["state"]["q"]).as_euler("xyz")
 
         initial_x_flat = initial_results["flat"]["x"]
+        initial_v_flat = initial_results["flat"]["x_dot"]
         initial_yaw_flat = initial_results["flat"]["yaw"]
         initial_rotor_speeds = initial_results["state"]["rotor_speeds"]
         initial_thrusts = initial_results["control"]["cmd_thrust"]
@@ -706,32 +693,34 @@ class QuadrotorSE3Control_RandomStart(QuadrotorSE3Control):
         eulers = R.from_quat(results["state"]["q"]).as_euler("xyz")
 
         x_flat = results["flat"]["x"]
+        v_flat = results["flat"]["x_dot"]
         yaw_flat = results["flat"]["yaw"]
         rotor_speeds = results["state"]["rotor_speeds"]
         cmd_thrust = results["control"]["cmd_thrust"]
 
         try:
-            initial_traj = np.zeros((self.initial_sensor_traj_length, 3+3+2+1))
+            initial_traj = np.zeros((self.initial_sensor_traj_length, 3+3+2+2+1))
             initial_traj[:,0:3] = initial_x[-self.initial_sensor_traj_length:] - initial_x_flat[-self.initial_sensor_traj_length:]
-            initial_traj[:,3:6] = initial_v[-self.initial_sensor_traj_length:]
+            initial_traj[:,3:6] = initial_v[-self.initial_sensor_traj_length:] - initial_v_flat[-self.initial_sensor_traj_length:]
             initial_traj[:,6] = initial_eulers[-self.initial_sensor_traj_length:,2]
-            initial_traj[:,7] = initial_w[-self.initial_sensor_traj_length:,2]
-            initial_traj[:,8] = initial_thrusts[-self.initial_sensor_traj_length:] # initial_rotor_speeds[-self.initial_sensor_traj_length:]
+            initial_traj[:,7:10] = initial_w[-self.initial_sensor_traj_length:]
+            initial_traj[:,10] = initial_thrusts[-self.initial_sensor_traj_length:] # initial_rotor_speeds[-self.initial_sensor_traj_length:]
         except ValueError:
             return False, None, None, None
 
-        actual_traj = np.zeros((self.t_f*sim_rate, 3+3+2+1))
+        actual_traj = np.zeros((self.t_f*sim_rate, 3+3+2+2+1))
         lim = min(x.shape[0], self.t_f*sim_rate)
         actual_traj[:lim,0:3] = x[:lim] - x_flat[:lim]
-        actual_traj[:lim,3:6] = v[:lim]
+        actual_traj[:lim,3:6] = v[:lim] - v_flat[:lim]
         actual_traj[:lim,6] = eulers[:lim,2]
-        actual_traj[:lim,7] = w[:lim,2]
-        actual_traj[:lim,8] = cmd_thrust[:lim] # rotor_speeds[:lim]
+        actual_traj[:lim,7:10] = w[:lim]
+        actual_traj[:lim,10] = cmd_thrust[:lim] # rotor_speeds[:lim]
 
         # Does this aggregate too many terms together?
         pos_error = np.sum(np.linalg.norm(x - x_flat, axis=1))/x.shape[0]
         yaw_error = np.sum(np.linalg.norm(eulers[:,2]- yaw_flat, axis=0))/x.shape[0]
-        pitchroll = np.sum(np.linalg.norm(eulers[:,:2], axis=1))/x.shape[0]
+        # pitchroll = np.sum(np.linalg.norm(eulers[:,:2], axis=1))/x.shape[0]
+        pitchroll = np.sum(np.linalg.norm(w[:2], axis=1))/x.shape[0]   # output pitchroll velocity instead...
         effort = np.sum(np.abs(cmd_thrust))/x.shape[0]
         return True, np.array([pos_error, yaw_error, pitchroll, effort]), actual_traj, initial_traj
 
@@ -891,18 +880,14 @@ class CrazyFlieSE3Control(QuadrotorSE3Control):
     ParamsT = CrazyFlieParams
 
 
-class CrazyFlieSE3Control_RandomStart(QuadrotorSE3Control_RandomStart):
+class CrazyFlieSE3Control_RandomStart_Train(QuadrotorSE3Control_RandomStart):
     ControllerParamsT = SE3ControlGains
-    ParamsT = CrazyFlieParams
-    TrainParamsT = CrazyFlieParamsTrain
-    TestParamsT = CrazyFlieParamsTest
+    ParamsT = CrazyFlieParamsTrain
 
 
 class CrazyFlieSE3Control_ResetFree(QuadrotorSE3Control_ResetFree):
     ControllerParamsT = SE3ControlGains
     ParamsT = CrazyFlieParams
-    TrainParamsT = CrazyFlieParamsTrain
-    TestParamsT = CrazyFlieParamsTest
 
 
 def generate_random_circle_traj(freq_limit):

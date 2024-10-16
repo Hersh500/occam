@@ -25,7 +25,7 @@ class CarControllerParams:
     brake: float = 0.1
     max_speed: int = 75
     braking_threshold: float = 0.4
-    cone_height: int = 20  # maybe these two should actually be intrinsic params?
+    cone_height: int = 20
     cone_width: int = 20
 
     def get_list(self):
@@ -134,7 +134,7 @@ class CarController:
 
 
     def test_on_track_return_traj(self, car_env, num_steps=50000, seed=42, length=None):
-        s, info = car_env.reset()
+        s, info = car_env.reset(seed=seed)
         track = np.array([[car_env.track[i][2], car_env.track[i][3]] for i in range(len(car_env.track))])
         i = 0
         target = track[2]
@@ -235,7 +235,7 @@ class CarController:
 
 
     def test_on_track(self, car_env, num_steps=50000, seed=42, length=None):
-        s, info = car_env.reset()
+        s, info = car_env.reset(seed=seed)
         track = np.array([[car_env.track[i][2], car_env.track[i][3]] for i in range(len(car_env.track))])
         i = 0
         target = track[2]

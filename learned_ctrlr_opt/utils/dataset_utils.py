@@ -410,3 +410,19 @@ def denormalize2(point, all_bounds):
     point_denorm = point/2 + 0.5
     point_denorm = denormalize(point_denorm, all_bounds)
     return point_denorm
+
+
+def pp_metrics(all_metrics, cfg):
+    if cfg.metric_pp_fn == "invert":
+        all_metrics[..., cfg.metric_idxs_to_pp] = 1/(1 + all_metrics[..., cfg.metric_idxs_to_pp])
+    elif cfg.metric_pp_fn == "log":
+        all_metrics[..., cfg.metric_idxs_to_pp] = np.log(all_metrics[...,cfg.metric_idxs_to_pp])
+    return all_metrics
+
+
+def unpp_metrics(all_metrics, cfg):
+    if cfg.metric_pp_fn == "invert":
+        all_metrics[..., cfg.metric_idxs_to_pp] = 1/(all_metrics[..., cfg.metric_idxs_to_pp]) - 1
+    elif cfg.metric_pp_fn == "log":
+        all_metrics[..., cfg.metric_idxs_to_pp] = np.exp(all_metrics[...,cfg.metric_idxs_to_pp])
+    return all_metrics

@@ -1,11 +1,24 @@
 import torch.optim
 import os
 from omegaconf import OmegaConf
+import h5py
+from sklearn.preprocessing import MinMaxScaler
 
 from learned_ctrlr_opt.meta_learning.lsr_net import *
 from learned_ctrlr_opt.meta_learning.reptile_net import *
 from learned_ctrlr_opt.meta_learning.teacher_student import *
 from learned_ctrlr_opt.meta_learning.utils import get_scalers
+
+
+def load_task_scaler(kf_cfg, flatten=False, clip=True):
+    dset_f = h5py.File(kf_cfg.path_to_dataset, 'r')
+    ref_tracks_enc = np.array(dset_f["reference_tracks_enc"])
+    if flatten:
+        ref_track_scaler = MinMaxScaler(clip=clip).fit(ref_tracks_enc.reshape(-1, 1))
+    else:
+        ref_track_scaler = MinMaxScaler(clip=clip).fit(ref_tracks_enc.reshape(-1, ref_tracks_enc.shape[-1]))
+    dset_f.close()
+    return ref_track_scaler
 
 
 def load_ts_and_scalers(experiment_cfg, abs_path_header=None):

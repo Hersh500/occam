@@ -116,7 +116,7 @@ class OCCAMModel(object):
         best_y_sigma = best_y_sigma.cpu().detach().numpy()
 
         # also need to un-preprocess metrics, if done during training.
-        best_y_unscaled = unpp_metrics(self.metric_scaler.inverse_transform(best_y_mean.reshape(1, -1)), self.experiment_cfg)
+        best_y_unscaled = unpp_metrics(self.metric_scaler.inverse_transform(best_y_mean.reshape(1, -1)), self.kf_cfg)
         return best_y_mean, best_y_sigma, best_y_unscaled
 
     def optimize_random_search(self, task_input=None, history=None):

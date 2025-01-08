@@ -8,8 +8,7 @@ from typing import Optional, SupportsFloat, Any
 import h5py
 import multiprocessing as mp
 
-
-from upkie.envs.wrappers import LowPassFilterAction
+from upkie.envs.wrappers import AddLagToAction
 from gymnasium.core import ActType, ObsType, RenderFrame
 from qpmpc import MPCQP, Plan, solve_mpc
 from qpmpc.systems import WheeledInvertedPendulum
@@ -234,18 +233,6 @@ class WheeledInvertedPendulumAngularAccMPC(WheeledInvertedPendulum):
         )
 
 
-# Env handles the connection to the real robot / Bullet simulation.
-class RealUpkieInterface:
-    def __init__(self,
-                 env,
-                 eval_time_horizon):
-        self.env = env
-        self.eval_time_horizon = eval_time_horizon
-
-    def evaluate_gain(self, gains):
-        pass
-
-
 # Use this to fit with OCCAM's API.
 # two environments - one is the "true" environment and one is the "perfect" wheeled env, per email with Stephane
 class DelayedUpkieSystem:
@@ -258,7 +245,7 @@ class DelayedUpkieSystem:
 
     def evaluate_gain(self, gains, init_state=None, render=False):
         # define the ground truth environment with params
-        gt_env = LowPassFilterAction(
+        gt_env = AddLagToAction(
             WheeledInvertedPendulumEnv(
                 self.params.leg_length,
                 self.params.wheel_radius,

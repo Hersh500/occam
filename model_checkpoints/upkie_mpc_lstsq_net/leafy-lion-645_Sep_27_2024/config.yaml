@@ -45,3 +45,4 @@ layer_sizes:
 - 32
 - 32
 nonlin: relu
+metric_pp_fn: "none"

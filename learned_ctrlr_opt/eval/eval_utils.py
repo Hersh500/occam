@@ -6,7 +6,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from learned_ctrlr_opt.meta_learning.lsr_net import *
 from learned_ctrlr_opt.meta_learning.reptile_net import *
-from learned_ctrlr_opt.meta_learning.teacher_student import *
+# from learned_ctrlr_opt.meta_learning.teacher_student import *
 from learned_ctrlr_opt.meta_learning.utils import get_scalers
 
 
@@ -101,7 +101,9 @@ def load_kf_and_scalers(experiment_cfg, abs_path_header=None):
                                  layer_sizes=kf_cfg.layer_sizes,
                                  nonlin=kf_cfg.nonlin).float().train().to(device)
 
-    kf_network.load_state_dict(torch.load(os.path.join(kf_checkpoint_dir, experiment_cfg.kf_ckpt_file), map_location=device))
+    kf_network.load_state_dict(torch.load(os.path.join(kf_checkpoint_dir, experiment_cfg.kf_ckpt_file),
+                                          weights_only=True,
+                                          map_location=device))
     kf_network.use_last_layer = False
     kf_network = kf_network.eval().to(device)
     return kf_network, gain_scaler, history_scaler, metric_scaler

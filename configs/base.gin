@@ -1,0 +1,18 @@
+# -*- python -*-
+#
+# SPDX-License-Identifier: Apache-2.0
+
+UpkieConfig.leg_length = 0.58                 # [m]
+UpkieConfig.max_ground_velocity = 3.0         # [m] / [s]
+UpkieConfig.wheel_radius = 0.06               # [m]
+
+tune_balancer_synchronous.max_ground_accel = 10.0               # [m] / [s]²
+tune_balancer_synchronous.mpc_sampling_period = 0.02            # [s]
+tune_balancer_synchronous.nb_mpc_timesteps = 50
+tune_balancer_synchronous.stage_input_cost_weight = 1e-3
+tune_balancer_synchronous.stage_state_cost_weight = 1e-3
+tune_balancer_synchronous.terminal_cost_weight = 1.0
+tune_balancer_synchronous.warm_start = True
+
+ProxQPWorkspace.update_preconditioner = True
+ProxQPWorkspace.verbose = False

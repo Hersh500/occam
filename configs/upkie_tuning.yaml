@@ -1,0 +1,18 @@
+---
+robot_name: "upkie_mpc"
+num_trials: 20  # unused on realupkie, as of now.
+run_occam: True
+occam_update_freq: 3  # seconds
+lookahead_dim: 4  # poorly named variable
+
+kf_ckpt_dir: "model_checkpoints/upkie_mpc_lstsq_net/leafy-lion-645_Sep_27_2024/"
+kf_ckpt_file: "model_epoch_145.pt"
+sigma_penalty: -0.1
+
+sample_noise: 3e-2
+num_search_samples: 2048
+cost_weights: [-0.3, -0.3, -0.3]
+batch_size: 2048
+
+
+initial_params: [0.56, 0.08]

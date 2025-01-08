@@ -4,7 +4,6 @@ from omegaconf import OmegaConf
 import numpy as np
 
 from learned_ctrlr_opt.eval.eval_utils import load_kf_and_scalers, load_task_scaler
-from learned_ctrlr_opt.meta_learning.lsr_net import LSRBasisNet, LSRBasisNet_encoder
 from learned_ctrlr_opt.meta_learning.basis_kf import kalman_step, last_layer_prediction_uncertainty_aware
 from learned_ctrlr_opt.utils.dataset_utils import unpp_metrics, pp_metrics
 from learned_ctrlr_opt.opt.random_search import random_search
@@ -13,13 +12,12 @@ from learned_ctrlr_opt.opt.random_search import random_search
 class OCCAMModel(object):
     def __init__(self,
                  experiment_cfg:OmegaConf,
-                 path_header: str =None,
-                 task_input: bool =False):
-
+                 path_header: str = "",
+                 task_input: bool = False):
 
         self.experiment_cfg = experiment_cfg
         self.kf_cfg = OmegaConf.load(os.path.join(path_header, experiment_cfg.kf_ckpt_dir, "config.yaml"))
-        self.kf_network, self.gain_scaler, self.history_scaler, self.metric_scaler = load_kf_and_scalers(experiment_cfg)
+        self.kf_network, self.gain_scaler, self.history_scaler, self.metric_scaler = load_kf_and_scalers(experiment_cfg, path_header)
         if task_input:
             # need to change this variable name to something more reasonable-sounding.
             self.ref_track_scaler = load_task_scaler(self.kf_cfg, flatten=self.kf_cfg.ref_track_per_term_scaling)
@@ -39,7 +37,6 @@ class OCCAMModel(object):
 
         self.previous_weights = None
         self.previous_sigmas = None
-
 
     def reset_model(self):
         self.weights = self.kf_network.last_layer_prior
@@ -82,22 +79,27 @@ class OCCAMModel(object):
     def adapt_model(self,
                     gains: np.ndarray,
                     observed_perf: np.ndarray,
-                    task_input:np.ndarray=None,
+                    task_input:np.ndarray = None,
                     history: np.ndarray = None):
         inputs_torch = self.preprocess_inputs(gains, task_input, history)
         phi = self.kf_network(inputs_torch.float().to(self.device).unsqueeze(0)).squeeze()
         observation_scaled = self.metric_scaler.transform(pp_metrics(observed_perf, self.kf_cfg).reshape(1, -1))
+        if self.previous_performances is None:
+            self.previous_performances = torch.from_numpy(observation_scaled)
+        else:
+            self.previous_performances = torch.cat([self.previous_performances,
+                                                    torch.from_numpy(observation_scaled)], dim=0)
         target = torch.from_numpy(observation_scaled).float().to(self.device).squeeze()
         with torch.no_grad():
             weights, sigma, K = kalman_step(self.weights, self.sigma, target.float().to(self.device), phi, self.Q, self.R)
 
         if self.previous_weights is None:
-            self.previous_weights = weights
+            self.previous_weights = weights.detach().cpu().view(1, -1)
         else:
             self.previous_weights = torch.cat([self.previous_weights, weights.unsqueeze(0).cpu()], dim=0)
 
         if self.previous_sigmas is None:
-            self.previous_sigmas = sigma
+            self.previous_sigmas = sigma.detach().cpu().view(1, sigma.size(-2), sigma.size(-1))
         else:
             self.previous_sigmas = torch.cat([self.previous_sigmas, sigma.unsqueeze(0).cpu()], dim=0)
 
@@ -114,11 +116,12 @@ class OCCAMModel(object):
         best_y_sigma = best_y_sigma.cpu().detach().numpy()
 
         # also need to un-preprocess metrics, if done during training.
-        best_y_unscaled = unpp_metrics(self.metric_scaler.inverse_transform(best_y_mean.reshape(1, -1)))
+        best_y_unscaled = unpp_metrics(self.metric_scaler.inverse_transform(best_y_mean.reshape(1, -1)), self.experiment_cfg)
         return best_y_mean, best_y_sigma, best_y_unscaled
 
     def optimize_random_search(self, task_input=None, history=None):
         gain_dim = len(self.kf_cfg.gains_to_optimize)
+
         def eval_fn(x, cost_weights, sigma_weight):
             q = x.size(0)
             cost_weights = torch.from_numpy(cost_weights).float().to(self.device)
@@ -147,16 +150,20 @@ class OCCAMModel(object):
             exploit_samples = None
         results = random_search(eval_fn,
                                 self.experiment_cfg.num_search_samples,
-                                self.experiment_cfg.cost_weights,
+                                np.array(self.experiment_cfg.cost_weights),
                                 gain_dim,
                                 self.device,
-                                fixed_inputs,
+                                fixed_inputs.squeeze(),
                                 self.experiment_cfg.batch_size,
-                                self.experiment_cfg.sigma_weight,
+                                self.experiment_cfg.sigma_penalty,
                                 exploit_samples)
         best_gain_unscaled = self.gain_scaler.inverse_transform(
-            results[0].detach().cpu().numpy()
-        )
+            results[0].unsqueeze(0).detach().cpu().numpy()
+        ).squeeze()
+        if self.previous_optima is None:
+            self.previous_optima = results[0].detach().cpu().view(1, -1)
+        else:
+            self.previous_optima = torch.cat([self.previous_optima, results[0].detach().cpu().view(1, -1)], dim=0)
         return best_gain_unscaled, results
 
     def preprocess_inputs(self, gains=None, task_input=None, history=None):
@@ -166,7 +173,7 @@ class OCCAMModel(object):
                 gains_scaled = self.gain_scaler.transform(gains.reshape(1, -1))
             else:
                 gains_scaled = self.gain_scaler.transform(gains)
-            inputs.append(gains_scaled)
+            inputs.append(torch.from_numpy(gains_scaled))
         if history is not None:
             traj_lim = history[-self.kf_cfg.history_length:]
             traj_lim = np.expand_dims(traj_lim, 0)
@@ -183,6 +190,9 @@ class OCCAMModel(object):
         inputs_torch = torch.cat(inputs, dim=-1)
         return inputs_torch
 
-    def get_cost_from_perf(self, raw_perf):
-        observation_scaled = self.metric_scaler.transform(pp_metrics(raw_perf, self.kf_cfg).reshape(1, -1))
-        return np.dot(observation_scaled, self.experiment_cfg.cost_weights)
+    def get_rwds_from_perfs(self, raw_perf):
+        if len(raw_perf.shape) == 1:
+            observation_scaled = self.metric_scaler.transform(pp_metrics(raw_perf, self.kf_cfg).reshape(1, -1))
+        else:
+            observation_scaled = self.metric_scaler.transform(pp_metrics(raw_perf, self.kf_cfg))
+        return np.dot(observation_scaled, np.array(self.experiment_cfg.cost_weights)).squeeze()

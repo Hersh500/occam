@@ -67,9 +67,9 @@ def tune_balancer_synchronous(env: gym.Env,
                               stage_state_cost_weight: float,
                               terminal_cost_weight: float,
                               warm_start: bool,
-                              cfg: OmegaConf):
+                              occam_cfg: OmegaConf):
 
-    occam_model = OCCAMModel(cfg,
+    occam_model = OCCAMModel(occam_cfg,
                              path_header="",
                              task_input=True)
 
@@ -88,9 +88,12 @@ def tune_balancer_synchronous(env: gym.Env,
             base_angular_velocity,
         ]
     )
+
     upkie_config = UpkieConfig()
-    wheel_radius = upkie_config.wheel_radius
-    leg_length = upkie_config.leg_length
+
+    # currently gets initial parameters from the config.
+    leg_length = occam_cfg.initial_params[0]
+    wheel_radius = occam_cfg.initial_params[1]
     best_gain = np.array([leg_length, wheel_radius])
 
     pendulum = WheeledInvertedPendulum(
@@ -144,7 +147,7 @@ def tune_balancer_synchronous(env: gym.Env,
                 base_angular_velocity,
             ]
         )
-        if cfg.tune_with_occam:
+        if occam_cfg.tune_with_occam:
             states.append(current_state)
 
         nx = WheeledInvertedPendulum.STATE_DIM
@@ -175,7 +178,7 @@ def tune_balancer_synchronous(env: gym.Env,
         else:  # plan was found
             pendulum.state = current_state
             commanded_accel = plan.first_input[0]
-            if cfg.tune_with_occam:
+            if occam_cfg.tune_with_occam:
                 inputs.append(commanded_accel / wheel_radius)
             commanded_velocity = clamp_and_warn(
                 commanded_velocity + commanded_accel * env.unwrapped.dt / 2.0,
@@ -186,7 +189,7 @@ def tune_balancer_synchronous(env: gym.Env,
 
         t += env.unwrapped.dt
 
-        if cfg.tune_with_occam and t >= cfg.occam_update_freq:
+        if occam_cfg.tune_with_occam and t >= occam_cfg.occam_update_freq:
             # running occam...
             states_np = np.array(states)
             inputs_np = np.array(inputs)
@@ -260,7 +263,7 @@ def main():
         spine_config=upkie_config.get_spine_config(),
         wheel_radius=upkie_config.wheel_radius,
     ) as env:
-        tune_balancer_synchronous(env=env, cfg=cfg)
+        tune_balancer_synchronous(env=env, occam_cfg=cfg)
 
 
 if __name__ == "__main__":

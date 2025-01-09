@@ -138,8 +138,9 @@ class OCCAMModel(object):
             losses = mean_losses + sigma_weight * variances
             return losses, ys, variances
         fixed_inputs = self.preprocess_inputs(gains=None, task_input=task_input, history=history)
+
+        # Eventually, we'll need to window previous_optima, otherwise it will just keep growing in size.
         if self.previous_optima is not None:
-            # where does gain_dim come from?
             perturbed_optima = [self.previous_optima]
             for num_to_add in range(5):
                 noisy_task_input_data = torch.clip(self.previous_optima + torch.randn(

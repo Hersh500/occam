@@ -216,6 +216,7 @@ def tune_balancer_synchronous(env: gym.Env,
             occam_initial_state = current_state
             occam_initial_state[0] = 0.0
 
+            # Rebuild MPC Problem
             pendulum = WheeledInvertedPendulum(
                 length=leg_length,
                 max_ground_accel=max_ground_accel,
@@ -227,7 +228,6 @@ def tune_balancer_synchronous(env: gym.Env,
                 stage_state_cost_weight=stage_state_cost_weight,
                 stage_input_cost_weight=stage_input_cost_weight,
             )
-            env.wheel_radius = wheel_radius  # used for converting linear velocity command to angular velocity
 
             mpc_problem.initial_state = np.zeros(4)
             mpc_qp = MPCQP(mpc_problem)

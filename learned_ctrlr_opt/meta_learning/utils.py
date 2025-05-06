@@ -4,10 +4,10 @@ from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from learned_ctrlr_opt.utils.dataset_utils import H5IntrinsicBatchedDataset, get_idxs_in_bounds, \
-    get_idxs_out_of_bounds, H5NonBatchedDataset
+    get_idxs_out_of_bounds, H5NonBatchedDataset, pp_metrics
 
 
-def get_scalers(path_to_dataset, history_length, metric_idxs, metric_idxs_to_invert=[]):
+def get_scalers(path_to_dataset, history_length, metric_idxs, metric_idxs_to_pp=[]):
     dset_f = h5py.File(path_to_dataset, 'r')
     all_gains = np.array(dset_f["gains"])
     gain_dim = all_gains.shape[-1]

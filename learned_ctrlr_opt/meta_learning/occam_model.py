@@ -48,7 +48,6 @@ class OCCAMModel(object):
         self.previous_performances = None
         self.previous_weights = None
         self.previous_sigmas = None
-        pass
 
     def save_occam_state(self, path: str = "temp_occam_state.pt", save_all: bool = False):
         if save_all:

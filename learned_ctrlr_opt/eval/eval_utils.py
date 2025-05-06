@@ -31,12 +31,12 @@ def load_ts_and_scalers(experiment_cfg, abs_path_header=None):
     # load scalers
     if abs_path_header is None:
         scalers = get_scalers(ts_cfg.path_to_dataset, ts_cfg.history_length, ts_cfg.metric_idxs,
-                              ts_cfg.metric_idxs_to_invert)
+                              ts_cfg)
     else:
         scalers = get_scalers(os.path.join(abs_path_header, ts_cfg.path_to_dataset),
                               ts_cfg.history_length,
                               ts_cfg.metric_idxs,
-                              ts_cfg.metric_idxs_to_invert)
+                              ts_cfg)
     history_scaler = scalers[-1]
     gain_scaler = scalers[0]
     metric_scaler = scalers[2]
@@ -71,12 +71,12 @@ def load_kf_and_scalers(experiment_cfg, abs_path_header=None):
     # load scalers
     if abs_path_header is None:
         scalers = get_scalers(kf_cfg.path_to_dataset, kf_cfg.history_length, kf_cfg.metric_idxs,
-                              kf_cfg.metric_idxs_to_invert)
+                              kf_cfg)
     else:
         scalers = get_scalers(os.path.join(abs_path_header, kf_cfg.path_to_dataset),
                               kf_cfg.history_length,
                               kf_cfg.metric_idxs,
-                              kf_cfg.metric_idxs_to_invert)
+                              kf_cfg)
     history_scaler = scalers[-1]
     gain_scaler = scalers[0]
     metric_scaler = scalers[2]
@@ -113,7 +113,7 @@ def load_reptile_and_scalers(experiment_cfg):
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     reptile_cfg = OmegaConf.load(os.path.join(reptile_checkpoint_dir, "config.yaml"))
     scalers = get_scalers(reptile_cfg.path_to_dataset, reptile_cfg.history_length, reptile_cfg.metric_idxs,
-                          reptile_cfg.metric_idxs_to_invert)
+                          reptile_cfg)
     history_scaler = scalers[-1]
     gain_scaler = scalers[0]
     metric_scaler = scalers[2]

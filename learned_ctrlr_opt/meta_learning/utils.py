@@ -7,12 +7,12 @@ from learned_ctrlr_opt.utils.dataset_utils import H5IntrinsicBatchedDataset, get
     get_idxs_out_of_bounds, H5NonBatchedDataset, pp_metrics
 
 
-def get_scalers(path_to_dataset, history_length, metric_idxs, metric_idxs_to_pp=[]):
+def get_scalers(path_to_dataset, history_length, metric_idxs, cfg):
     dset_f = h5py.File(path_to_dataset, 'r')
     all_gains = np.array(dset_f["gains"])
     gain_dim = all_gains.shape[-1]
     all_metrics = np.array(dset_f["metrics"])
-    all_metrics[..., metric_idxs_to_invert] = 1/(1 + all_metrics[..., metric_idxs_to_invert])
+    all_metrics = pp_metrics(all_metrics, cfg)
     all_thetas = np.array(dset_f["intrinsics"])
     theta_dim = all_thetas.shape[-1]
 
@@ -32,7 +32,7 @@ def get_sysid_history_dataset(cfg, intrinsic_bounds, in_bounds=True, batched=Tru
     all_gains = np.array(dset_f["gains"])
     gain_dim = all_gains.shape[-1]
     all_metrics = np.array(dset_f["metrics"])
-    all_metrics[..., cfg.metric_idxs_to_invert] = 1/(1 + all_metrics[..., cfg.metric_idxs_to_invert])
+    all_metrics = pp_metrics(all_metrics, cfg)
     all_thetas = np.array(dset_f["intrinsics"])
     batch_size = all_gains.shape[1]
     if "reference_tracks_enc" in dset_f.keys():
@@ -97,14 +97,13 @@ def get_sysid_history_dataset(cfg, intrinsic_bounds, in_bounds=True, batched=Tru
 
     def metric_pp_fn(metric, idx):
         metric_new = np.array(metric)
-        metric_new[...,cfg.metric_idxs_to_invert] = 1/(1+metric[...,cfg.metric_idxs_to_invert])
+        metric_new = pp_metrics(metric_new, cfg)
         metric_scaled = metric_scaler.transform(metric_new)
         metric_scaled += np.random.randn(*metric_scaled.shape) * cfg.metric_noise_std
         return metric_scaled
 
     def metric_pp_fn_gt(metric, idx):
-        metric_new = np.array(metric)
-        metric_new[...,cfg.metric_idxs_to_invert] = 1/(1+metric[...,cfg.metric_idxs_to_invert])
+        metric_new = pp_metrics(metric, cfg)
         metric_scaled = metric_scaler.transform(metric_new)
         metric_scaled += np.random.randn(*metric_scaled.shape) * cfg.metric_noise_std
         return metric_scaled

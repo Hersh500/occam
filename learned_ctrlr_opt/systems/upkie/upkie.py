@@ -280,9 +280,9 @@ class DelayedUpkieSystem:
         for i in range(num_steps):
             states[i] = observation
             inputs[i] = commanded_accel
-            action[0] = commanded_accel
+            action[0] = commanded_accel + np.random.randn() * 3e-2  # add noise to commanded acceleration
             observation, _, terminated, truncated, info = gt_env.step(action)
-            observation_noisy = observation + np.random.randn() * 1e-2
+            observation_noisy = observation + np.random.randn() * 2e-2
             if render:
                 print(f"action = {action}")
                 print(f"state = {observation}")
@@ -338,13 +338,13 @@ def gather_upkie_balancing_mpc_data(num_batches,
                                     high_level_folder,
                                     init_state_bounds,
                                     ep_length):
-    intrinsics = np.zeros((num_batches, len(WheeledInvertedPendulumParams().get_list())))
+    intrinsics = np.zeros((num_batches, len(thetas_to_randomize)))
     gains = np.zeros((num_batches, batch_size, len(MPCBalancerParams().get_list())))
     ref_tracks_enc = np.zeros((num_batches, batch_size, 4))
     metrics = np.zeros((num_batches, batch_size, len(DelayedUpkieSystem.perf_metric_names())))
     for b in range(num_batches):
         print(f"on batch {b}")
-        intrinsic = WheeledInvertedPendulumParams.generate_random(thetas_to_randomize).get_list()
+        intrinsic = WheeledInvertedPendulumParams.generate_random(thetas_to_randomize).get_list()[thetas_to_randomize]
         intrinsics[b] = intrinsic
         for i in range(batch_size):
             gains[b,i] = MPCBalancerParams.generate_random([0, 1]).get_list()

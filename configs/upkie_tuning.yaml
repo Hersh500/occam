@@ -5,13 +5,14 @@ tune_with_occam: True
 occam_update_freq: 1  # seconds
 lookahead_dim: 4  # poorly named variable
 
-kf_ckpt_dir: "model_checkpoints/upkie_mpc_lstsq_net/leafy-lion-645_Sep_27_2024/"
+# kf_ckpt_dir: "model_checkpoints/upkie_mpc_lstsq_net/leafy-lion-645_Sep_27_2024/"
+kf_ckpt_dir: "model_checkpoints/upkie_mpc_lstsq_net/whole-oath-781_May_06_2025/"
 kf_ckpt_file: "model_epoch_145.pt"
-sigma_penalty: -0.1
+sigma_penalty: 0.0
 
 sample_noise: 3e-2
 num_search_samples: 512
-cost_weights: [-0.3, -0.3, -0.3]
+cost_weights: [-0.1, -0.2, -0.6]
 batch_size: 512
 
 initial_params: [0.56, 0.08]

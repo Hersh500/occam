@@ -413,6 +413,7 @@ def denormalize2(point, all_bounds):
 
 
 def pp_metrics(all_metrics, cfg):
+    all_metrics = np.array(all_metrics)
     if cfg.metric_pp_fn == "invert":
         all_metrics[..., cfg.metric_idxs_to_pp] = 1/(1 + all_metrics[..., cfg.metric_idxs_to_pp])
     elif cfg.metric_pp_fn == "log":

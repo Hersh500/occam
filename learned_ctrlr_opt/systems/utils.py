@@ -3,6 +3,7 @@ from learned_ctrlr_opt.systems.car_dynamics import CarParams, CarParamsTrain, Ca
 from learned_ctrlr_opt.systems.quadrotor_geom import CrazyFlieParams, CrazyFlieParamsTest, CrazyFlieParamsTrain
 from learned_ctrlr_opt.systems.branin import *
 from learned_ctrlr_opt.systems.hartmann import *
+from learned_ctrlr_opt.systems.upkie.upkie import * 
 
 param_types = {"topdowncar": CarParams,
                "topdowncar_train":CarParamsTrain,
@@ -18,5 +19,6 @@ param_types = {"topdowncar": CarParams,
                "branin_test": BraninFnParamsTest,
                "hartmann": HartmannFnParams,
                "hartmann_train": HartmannFnParamsTrain,
-               "hartmann_test": HartmannFnParamsTest
+               "hartmann_test": HartmannFnParamsTest,
+               "upkie_train": WheeledInvertedPendulumParams
                }

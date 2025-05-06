@@ -18,7 +18,7 @@ from learned_ctrlr_opt.meta_learning.basis_kf import train_basis_net_kf, eval_ba
 from learned_ctrlr_opt.meta_learning.utils import get_sysid_history_dataset
 
 
-@hydra.main(version_base=None, config_path="configs/meta_learning_confs", config_name="lsr_conf.yaml")
+@hydra.main(version_base=None, config_path="../configs/meta_learning_confs", config_name="lsr_conf.yaml")
 def main(cfg):
     train_dataset, train_dataloader, val_dataset, val_dataloader = get_sysid_history_dataset(
         cfg,

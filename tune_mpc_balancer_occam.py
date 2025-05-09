@@ -197,7 +197,7 @@ def tune_balancer_synchronous(env: gym.Env,
             velocity_error = np.sum(np.abs(states_np[:,2])) / states_np.shape[0]
             angle_error = np.sum(np.abs(states_np[:,1])) / states_np.shape[0]
             effort = np.sum(np.abs(inputs_np)) / inputs_np.shape[0]
-            performance = np.array([velocity_error, angle_error, effort])
+            performance = np.array([angle_error, velocity_error, effort])
 
             # adapt model
             occam_model.adapt_model(best_gain, performance, occam_initial_state)

@@ -8,7 +8,7 @@ initial_state_bounds = np.array([[0, 0],
 
 num_batches = 500
 batch_size = 32
-thetas_to_randomize = [0, 1, 3]
+thetas_to_randomize = [0, 1, 2, 3]
 ep_length = 3
 
 gather_upkie_balancing_mpc_data(num_batches,

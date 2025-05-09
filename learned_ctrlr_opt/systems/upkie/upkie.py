@@ -22,14 +22,14 @@ from learned_ctrlr_opt.systems.upkie.proxqp_workspace import ProxQPWorkspace
 class WheeledInvertedPendulumParams:
     leg_length: float = 0.58
     wheel_radius: float = 0.06
-    action_lpf: float = 0.07
+    action_lpf: float = 0.04
     mpc_sampling_period: float = 0.1
 
     @staticmethod
     def get_bounds():
         return np.array([[0.4, 0.6],
                          [0.04, 0.08],
-                         [0.00, 0.15],
+                         [0.00, 0.08],
                          [0.05, 0.15]])
 
     @classmethod
@@ -243,7 +243,7 @@ class DelayedUpkieSystem:
         self.time_horizon_s = time_horizon_s
         self.tstep = 0.01
 
-    def evaluate_gain(self, gains, init_state=None, render=False):
+    def evaluate_gain(self, gains, init_state=None, render=False, action_noise=0, obs_noise=0):
         # define the ground truth environment with params
         gt_env = AddLagToAction(
             WheeledInvertedPendulumEnv(
@@ -259,7 +259,7 @@ class DelayedUpkieSystem:
         pendulum = WheeledInvertedPendulumAngularAccMPC(
             length=gains[0],
             wheel_radius=gains[1],
-            sampling_period=self.params.mpc_sampling_period
+            sampling_period=self.params.mpc_sampling_period,
         )
         mpc_problem = pendulum.build_mpc_problem(
             terminal_cost_weight=1.0,
@@ -280,9 +280,9 @@ class DelayedUpkieSystem:
         for i in range(num_steps):
             states[i] = observation
             inputs[i] = commanded_accel
-            action[0] = commanded_accel + np.random.randn() * 3e-2  # add noise to commanded acceleration
+            action[0] = commanded_accel + np.random.randn() * action_noise  # add noise to commanded acceleration
             observation, _, terminated, truncated, info = gt_env.step(action)
-            observation_noisy = observation + np.random.randn() * 2e-2
+            observation_noisy = observation + np.random.randn() * obs_noise
             if render:
                 print(f"action = {action}")
                 print(f"state = {observation}")
@@ -305,7 +305,8 @@ class DelayedUpkieSystem:
 
             plan = Plan(mpc_problem, qpsol)
             pendulum.state = observation_noisy
-            commanded_accel = plan.first_input[0]
+            if plan.first_input is not None:
+                commanded_accel = plan.first_input[0]
             # print("------------------------")
             # print(f"Plan expected states:")
             # print(plan.states)
@@ -337,7 +338,9 @@ def gather_upkie_balancing_mpc_data(num_batches,
                                     thetas_to_randomize,
                                     high_level_folder,
                                     init_state_bounds,
-                                    ep_length):
+                                    ep_length,
+                                    action_noise=1e-3,
+                                    obs_noise=2e-3):
     intrinsics = np.zeros((num_batches, len(thetas_to_randomize)))
     gains = np.zeros((num_batches, batch_size, len(MPCBalancerParams().get_list())))
     ref_tracks_enc = np.zeros((num_batches, batch_size, 4))
